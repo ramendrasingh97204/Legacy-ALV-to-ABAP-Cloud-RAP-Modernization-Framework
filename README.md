@@ -174,11 +174,7 @@ Possible enhancements include:
 
 ---
 
-## Architecture diagrams
-
-Below are two representations of the target modernized architecture: a high-level ASCII diagram useful inside the README, and a PlantUML example you can convert to an image and store in `/docs/` for richer documentation.
-
-High-level ASCII architecture
+## Architecture diagram
 
 ```text
 +----------------------+      +----------------------+      +---------------------+
@@ -194,34 +190,6 @@ High-level ASCII architecture
                               |  SAP DB / S/4 tables |
                               +----------------------+
 ```
-
-PlantUML (example) — save as `docs/architecture.puml` and render to `docs/architecture.png`:
-
-```plantuml
-@startuml
-actor "User / Fiori" as User
-rectangle "Fiori Elements / UI" as UI
-rectangle "ABAP Backend (RAP)" as RAP {
-  component "Consumption Layer (ZC_*) - CDS" as consumption
-  component "Interface Layer (ZI_*) - CDS" as interface
-  component "Behavior (.asbdef + classes)" as behavior
-  component "Service (asrvds)" as service
-}
-database "SAP DB / S4" as DB
-
-User -> UI : Interacts
-UI -> service : OData calls
-service -> consumption : expose entities
-consumption -> interface : projection/associations
-interface -> DB : selects/associations
-behavior -> DB : write/action operations
-
-@enduml
-```
-
-Notes:
-- Include rendered diagram images in README by adding `/docs/architecture.png` and embedding: `![Architecture](/docs/architecture.png)`.
-- PlantUML can be rendered locally or via online services and committed under `/docs/` for GitHub Pages preview.
 
 ## Migration notes
 
@@ -286,13 +254,3 @@ This section documents recommended steps, mappings, and checks when modernizing 
 - When testing, use production-like data volumes to discover performance regressions early.
 - Use incremental migration: read-only first, then actions.
 
-## Recommended artifacts to add to this repository
-
-- /docs/architecture.png (rendered from PlantUML)
-- /docs/migration-plan.md (detailed step-by-step runbook)
-- /tests/ (sample test cases or expected OData responses)
-- LICENSE (MIT/Apache as desired)
-
-## License
-
-No explicit license file is present in the repository at this time. If this project is intended for reuse, add a license file such as MIT or Apache 2.0 before public distribution.
