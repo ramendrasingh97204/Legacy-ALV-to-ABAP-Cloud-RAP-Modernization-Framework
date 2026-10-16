@@ -172,6 +172,127 @@ Possible enhancements include:
 - additional entities and associations
 - test classes and automation coverage
 
+---
+
+## Architecture diagrams
+
+Below are two representations of the target modernized architecture: a high-level ASCII diagram useful inside the README, and a PlantUML example you can convert to an image and store in `/docs/` for richer documentation.
+
+High-level ASCII architecture
+
+```text
++----------------------+      +----------------------+      +---------------------+
+|  ALV (legacy UI)     | ---> |  ABAP Backend (RAP)  | ---> |  OData / Fiori UI   |
+|  (optional migration) |      |  - CDS views (read)  |      |  - Fiori Elements   |
++----------------------+      |  - Behavior (BO)     |      +---------------------+
+                              |  - Service (asrvds)  |
+                              |  - ABAP classes      |
+                              +----------------------+ 
+                                      ^
+                                      |
+                              +----------------------+
+                              |  SAP DB / S/4 tables |
+                              +----------------------+
+```
+
+PlantUML (example) — save as `docs/architecture.puml` and render to `docs/architecture.png`:
+
+```plantuml
+@startuml
+actor "User / Fiori" as User
+rectangle "Fiori Elements / UI" as UI
+rectangle "ABAP Backend (RAP)" as RAP {
+  component "Consumption Layer (ZC_*) - CDS" as consumption
+  component "Interface Layer (ZI_*) - CDS" as interface
+  component "Behavior (.asbdef + classes)" as behavior
+  component "Service (asrvds)" as service
+}
+database "SAP DB / S4" as DB
+
+User -> UI : Interacts
+UI -> service : OData calls
+service -> consumption : expose entities
+consumption -> interface : projection/associations
+interface -> DB : selects/associations
+behavior -> DB : write/action operations
+
+@enduml
+```
+
+Notes:
+- Include rendered diagram images in README by adding `/docs/architecture.png` and embedding: `![Architecture](/docs/architecture.png)`.
+- PlantUML can be rendered locally or via online services and committed under `/docs/` for GitHub Pages preview.
+
+## Migration notes
+
+This section documents recommended steps, mappings, and checks when modernizing a legacy ALV report into RAP.
+
+1) Initial discovery & scoping
+- Inventory the ALV program: selection screen fields, includes, data sources (tables/views), and any export logic.
+- Identify the master tables and transient calculation logic.
+- Record current authorization checks and critical validations.
+
+2) Data modeling (CDS)
+- Create Interface (ZI_*) CDS views that model rows required by the report. Prefer @ObjectModel annotations for usage and performance.
+- Create Consumption/Projection (ZC_*) CDS views annotated for OData/UI consumption.
+- Use associations to link related entities rather than manual joins where possible.
+- Add semantics and UI annotations gradually: @EndUserText, @Semantics, @Consumption.
+
+3) Behavior definition
+- Decide whether behavior is managed or unmanaged. For reports that require custom writes/actions, define actions in `.asbdef` and implement in behavior classes.
+- Map ALV actions (e.g., change status, recalc) to RAP actions.
+- Consider lock strategy: `lock master` or row-level locking if concurrent changes are expected.
+
+4) Service exposure
+- Define a service `.assrvds` exposing the consumption projection.
+- Generate OData metadata and test via the service document.
+
+5) Business logic and classes
+- Move complex logic that was previously in includes into dedicated classes (e.g., zcl_ram_process_order) and into behavior implementations (e.g., zbp_i_ram_processorderdetail).
+- Keep CDS for data modeling and simple calculations; implement procedural logic in classes.
+
+6) UI and access
+- Decide on target UI: Fiori Elements (recommended for list/detail), custom Fiori, or keep ALV for quick wins.
+- For Fiori Elements, use the consumption CDS annotations and metadata to enable list reports and object pages.
+
+7) Testing & validation
+- Functional tests: verify that OData responses match the legacy report results for representative queries.
+- Performance tests: compare execution time for heavy queries and tune CDS (use proper filters, subscriptions, and indexes).
+- Authorization tests: replicate existing SU53 scenarios and map to RAP-level authorization checks.
+
+8) Cutover strategy
+- Consider a phased approach: expose RAP service while keeping ALV program as fallback.
+- If possible, expose read-only RAP endpoints first, then migrate actions once behavior is stable.
+- Communicate changes to users and provide training materials.
+
+## Migration checklist (quick)
+
+- [ ] Inventory ALV program and includes
+- [ ] Identify source tables and fields
+- [ ] Design Interface CDS (ZI_*)
+- [ ] Design Consumption CDS (ZC_*) with UI annotations
+- [ ] Create Behavior definition (.asbdef) and classes
+- [ ] Implement Service (.assrvds) and test metadata
+- [ ] Implement unit and integration tests
+- [ ] Create Fiori/UI artifacts or validate ALV fallback
+- [ ] Performance tune and optimize
+- [ ] Rollout plan and training
+
+## Common pitfalls & tips
+
+- Avoid moving heavy row-by-row loops from ABAP to CDS — instead push calculation into CDS or DB-side where possible.
+- Use associations over manual join duplication to simplify maintainability.
+- Keep authorization rules explicit in behavior definitions, don't rely solely on service-level checks.
+- When testing, use production-like data volumes to discover performance regressions early.
+- Use incremental migration: read-only first, then actions.
+
+## Recommended artifacts to add to this repository
+
+- /docs/architecture.png (rendered from PlantUML)
+- /docs/migration-plan.md (detailed step-by-step runbook)
+- /tests/ (sample test cases or expected OData responses)
+- LICENSE (MIT/Apache as desired)
+
 ## License
 
 No explicit license file is present in the repository at this time. If this project is intended for reuse, add a license file such as MIT or Apache 2.0 before public distribution.
